@@ -40,6 +40,8 @@ Proven: exact local bidirectional raw packet delivery and the profile behavior l
 
 The final installed builds also passed a browser test at 0 dBm: each board sent a message using the web controls, and the peer's open packet log refreshed with the exact message. Canvas painting, undo/redo, and exact bitmap readback passed for both native screen sizes. The [browser record](browser-pair-2026-11-03.json) contains those outcomes. One earlier browser transmission at -9 dBm produced a receive error and no received packet; the higher-power browser test passed. This reinforces the limit on delivery claims without acknowledgments.
 
+Remote JSON display commands also crossed the radio link in both directions. Each received screen frame matched the frame produced by the same JSON over HTTP, at its native dimensions. The [remote display record](remote-display-2026-11-03.json) records the payloads and comparisons.
+
 A local `sent:true` response by itself remains a transmit result. Applications that require delivery confirmation must implement acknowledgments and retries.
 
 Provided as is, without warranty of any kind. You accept all risk from installation and use.

@@ -1,0 +1,28 @@
+[
+  {
+    "sender": "paper",
+    "receiver": "tracker",
+    "json": {
+      "text": "LoRa API ready\nRadio message received",
+      "size": 1,
+      "x": 4,
+      "y": 4
+    },
+    "exact_frame_match": true,
+    "bytes": 1600,
+    "attempts": 1
+  },
+  {
+    "sender": "tracker",
+    "receiver": "paper",
+    "json": {
+      "text": "LoRa API ready\nRadio message received",
+      "size": 2,
+      "x": 4,
+      "y": 4
+    },
+    "exact_frame_match": true,
+    "bytes": 3904,
+    "attempts": 1
+  }
+]
