@@ -1,0 +1,13 @@
+.venv/
+.pio/
+.local/
+__pycache__/
+*.pyc
+.env
+.env.*
+include/secrets*.h
+!include/secrets.example.h
+*.bin
+*.elf
+*.map
+*.log
