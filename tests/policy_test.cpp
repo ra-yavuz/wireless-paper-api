@@ -17,6 +17,7 @@ int main() {
   assert(hotspotSecondsRemaining(HOTSPOT_WINDOW_MS-1)==1);
   assert(hotspotSecondsRemaining(HOTSPOT_WINDOW_MS)==0);
   RadioSettings c;assert(validRadio(c));
+  c.enabled=true;assert(!validRadio(c));c.enabled=false;
   c.frequency=868.1;c.bandwidth=250;c.sf=12;c.cr=8;c.power=22;c.preamble=65535;c.tx=true;
   assert(validRadio(c));c.frequency=700;assert(!validRadio(c));c.frequency=915;
   c.dutyPercent=0;assert(!validRadio(c));c.dutyPercent=101;assert(!validRadio(c));c.dutyPercent=1;

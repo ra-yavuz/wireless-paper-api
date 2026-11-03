@@ -87,6 +87,13 @@ if args.radio_mhz:
         assert r.status_code==200,(r.status_code,r.text)
         assert r.json()['radio_ready'],r.text
         check_connectivity_policy()
+        dedicated=get('/api/lora/status').json();assert dedicated['ready'] and dedicated['enabled']
+        r=s.post(base+'/api/lora/activate',json={'enabled':False},timeout=20);r.raise_for_status()
+        dedicated=get('/api/lora/status').json();assert not dedicated['ready'] and not dedicated['enabled']
+        assert dedicated['settings']['frequency_mhz']==args.radio_mhz
+        r=s.post(base+'/api/lora/activate',json={'enabled':True,'tx_enabled':False},timeout=20);r.raise_for_status()
+        assert get('/api/lora/status').json()['ready']
+        r=s.post(base+'/api/lora/config',json={'sync_word':18},timeout=20);r.raise_for_status()
         # TX-disabled requests must never emit a radio packet.
         r=s.post(base+'/api/lora/send',json={'text':'not transmitted'},timeout=10)
         assert r.status_code==403,(r.status_code,r.text)

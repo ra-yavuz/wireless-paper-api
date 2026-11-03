@@ -44,10 +44,24 @@
 }</pre>
 <h2>Images</h2><p>Send exactly <strong>3,904 bytes</strong> to <code>POST /api/frame</code> with <code>Content-Type: application/octet-stream</code>. Rows are top to bottom. Each row has 32 bytes, most significant bit first; 1 means black. The last six bits in each row are padding. <code>GET /api/frame</code> returns the last completed frame. The browser controls convert pictures for you.</p>
 <h2>Progress and errors</h2><p>Display writes return <code>202 {"accepted":true,"job":NUMBER}</code>. Poll <a href="/api/status">GET /api/status</a> until <code>completed_job</code> matches the job and <code>busy</code> is false. A panel timeout sets <code>display_error</code>. The server returns 409 while the screen is busy and 400 for invalid input. JSON is limited to 8,192 bytes. Rejected input does not alter the screen.</p>
-<h2>LoRa adapter</h2><p>The board can send and receive raw LoRa packets as an HTTP-controlled adapter. It is not Meshtastic or LoRaWAN. Display commands still work using the WP packet format below.</p>
-<p><code>GET /api/radio</code> returns current settings. <code>POST /api/radio</code> accepts any subset of these fields; settings are saved across restarts:</p>
-<pre>{"frequency_mhz":868.1,"bandwidth_khz":125,"spreading_factor":7,"coding_rate":5,"sync_word":18,"power_dbm":10,"preamble":8,"crc":true,"tx_enabled":false,"duty_cycle_percent":1}</pre>
-<p>Match your hardware band. Frequency 0 disables the radio. Accepted ranges: frequency 430–510 or 863–928 MHz; bandwidth 125/250/500 kHz; spreading factor 5–12; coding-rate denominator 5–8; sync word 0–255; TX power −9 to 22 dBm; preamble 8–65535; duty limit 0.1–100%. Header mode is explicit. TX is disabled by default. Use an appropriate antenna and settings permitted for your location.</p>
+<h2 id="lora-api">LoRa adapter API</h2><p>The board can send and receive raw LoRa packets as an HTTP-controlled adapter. It is not Meshtastic or LoRaWAN. Display commands still work using the WP packet format below.</p>
+<p><code>GET /api/lora/status</code> returns radio state. <code>GET /api/lora/config</code> returns the saved settings and state. <code>POST /api/lora/config</code> accepts any subset of these fields; settings are saved across restarts:</p>
+<pre>{"enabled":true,"frequency_mhz":868.1,"bandwidth_khz":125,"spreading_factor":7,"coding_rate":5,"sync_word":18,"power_dbm":10,"preamble":8,"crc":true,"tx_enabled":false,"duty_cycle_percent":1}</pre>
+<p>Match your hardware band. Set enabled:false to deactivate the radio without losing its frequency. Set enabled:true to activate reception. Frequency 0 also disables the radio. A frequency update without an enabled field activates a positive frequency for compatibility. Accepted ranges: frequency 430–510 or 863–928 MHz; bandwidth 125/250/500 kHz; spreading factor 5–12; coding-rate denominator 5–8; sync word 0–255; TX power −9 to 22 dBm; preamble 8–65535; duty limit 0.1–100%. Header mode is explicit. TX is disabled by default. Use an appropriate antenna and settings permitted for your location.</p>
+<p><code>POST /api/lora/activate</code> accepts <code>{"enabled":true}</code> or <code>{"enabled":false}</code>, and optional <code>tx_enabled</code>. A frequency must be configured before activation. Activation and TX permission are saved across restarts. Deactivating the radio does not stop station Wi-Fi or change the hotspot policy. The older <code>/api/radio</code> path remains a configuration alias.</p>
+<pre>curl http://BOARD/api/lora/config -H 'Content-Type: application/json' \
+  -d '{"frequency_mhz":868.1,"enabled":true,"tx_enabled":false}'
+
+curl http://BOARD/api/lora/activate -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"tx_enabled":true}'
+
+curl http://BOARD/api/lora/send -H 'Content-Type: application/json' \
+  -d '{"text":"hello"}'
+
+curl 'http://BOARD/api/lora/messages?after=0'
+
+curl http://BOARD/api/lora/activate -H 'Content-Type: application/json' \
+  -d '{"enabled":false}'</pre>
 <p><code>POST /api/lora/send</code> accepts <code>{"text":"hello"}</code> or <code>{"hex":"00ff1234"}</code>, exactly one, with 1–255 payload bytes. Success returns <code>{"sent":true,"id":1,"bytes":5,"receiver_ready":true}</code>. This reports the local radio transmission, not remote receipt. Reception pauses while transmitting. An unavailable radio returns 409, disabled TX returns 403, invalid payload returns 400, and airtime pacing returns 429 with Retry-After. The pacing safeguard does not guarantee regulatory compliance.</p>
 <p><code>GET /api/lora/messages?after=0</code> returns the last 16 sent/received packets in RAM, each with id, uptime_ms, direction, byte count, hex payload, printable ASCII text where possible, and RSSI/SNR for received packets. Use latest_id as the next after cursor. The truncated flag reports an expired cursor. Packet IDs and the log reset when the board restarts.</p>
 <p>LoRa packets have a 16-byte little-endian header: ASCII WP (2 bytes), version 1 (1), kind 1=JSON or 2=bitmap (1), request ID (4), whole payload length (2), fragment offset (2), whole-payload CRC32 (4). Append up to 224 payload bytes. Offsets are multiples of 224; all but the final fragment contain 224 bytes. CRC matches Python zlib.crc32. Whole payloads are limited to 8,192 bytes; bitmaps are exactly 3,904. Partial transfers expire after 120 seconds of inactivity. There are no acknowledgments. Use a second LoRa transmitter, matching settings, and suitable airtime pacing.</p>

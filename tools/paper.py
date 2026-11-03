@@ -55,18 +55,23 @@ def main():
     i = sub.add_parser("image"); i.add_argument("file", type=Path)
     j = sub.add_parser("json"); j.add_argument("file", type=Path)
     sub.add_parser("status")
+    activation=sub.add_parser("activate");activation.add_argument("--off",action="store_true");activation.add_argument("--tx",choices=["on","off"])
     send=sub.add_parser("send");send.add_argument("payload");send.add_argument("--hex",action="store_true")
     receive=sub.add_parser("receive");receive.add_argument("--after",type=int,default=0)
     config=sub.add_parser("radio");config.add_argument("file",type=Path,help="JSON modem settings")
     args = p.parse_args()
     import requests
     session=requests.Session();session.trust_env=False
-    if args.command in ("status","send","receive","radio"):
+    if args.command in ("status","send","receive","radio","activate"):
         if not args.url:p.error("this command requires --url")
         base=args.url.rstrip("/")
         if args.command=="status":r=session.get(base+"/api/status",timeout=10)
         elif args.command=="receive":r=session.get(base+"/api/lora/messages",params={"after":args.after},timeout=10)
-        elif args.command=="radio":r=session.post(base+"/api/radio",json=json.loads(args.file.read_text()),timeout=20)
+        elif args.command=="radio":r=session.post(base+"/api/lora/config",json=json.loads(args.file.read_text()),timeout=20)
+        elif args.command=="activate":
+            setting={"enabled":not args.off}
+            if args.tx is not None:setting["tx_enabled"]=args.tx=="on"
+            r=session.post(base+"/api/lora/activate",json=setting,timeout=20)
         else:r=session.post(base+"/api/lora/send",json={"hex" if args.hex else "text":args.payload},timeout=30)
         r.raise_for_status();print(json.dumps(r.json(),indent=2));return
     kind = 1

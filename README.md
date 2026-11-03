@@ -2,7 +2,7 @@
 
 Control a Heltec Wireless Paper e-paper screen from a browser, Python, HTTP, or raw LoRa. Paint on a canvas, send text with layout settings, upload a picture, or use the board as a bidirectional LoRa adapter.
 
-A personal open-source project by **Ramazan Yavuz**. [Project page](https://ra-yavuz.github.io/wireless-paper-api/) · [API reference](docs/api.html) · [Security notes](SECURITY.md)
+A personal open-source project by **Ramazan Yavuz**. [Project page](https://ra-yavuz.github.io/wireless-paper-api/) · [API reference](docs/api.html) · [Security notes](SECURITY.md) · [Practical write-up](https://ramazan-yavuz.tr/articles/wireless-paper-api-a-screen-you-can-reach.html)
 
 ## What it does
 
@@ -88,7 +88,9 @@ Open `/api` on the device for the full reference. The same reference is in [docs
 | `POST /api/frame` | Full binary bitmap |
 | `GET /api/frame` | Last successfully completed bitmap |
 | `GET/POST /api/hotspot` | Read/save `first-hour` or `always` policy |
-| `GET/POST /api/radio` | Read/save modem settings |
+| `GET /api/lora/status` | Radio state and packet counters |
+| `GET/POST /api/lora/config` | Read/save modem settings (`/api/radio` remains an alias) |
+| `POST /api/lora/activate` | Activate/deactivate the radio and set optional TX permission |
 | `POST /api/lora/send` | Send one raw radio packet |
 | `GET /api/lora/messages` | Read the rolling sent/received packet log |
 | `POST /api/power` | Accepts `online` only; full Wi-Fi shutdown modes return 403 |
@@ -128,6 +130,8 @@ A full bitmap is **3,904 bytes**: 122 rows of 32 bytes, MSB first, **1 = black**
 .venv/bin/python tools/paper.py --url http://BOARD send 00ff1234 --hex
 .venv/bin/python tools/paper.py --url http://BOARD receive --after 0
 .venv/bin/python tools/paper.py --url http://BOARD radio modem.json
+.venv/bin/python tools/paper.py --url http://BOARD activate --tx on
+.venv/bin/python tools/paper.py --url http://BOARD activate --off
 ```
 
 `tools/paper.py` also exposes `image_frame(path)` and `packets(body, kind, request_id)` for use from other Python code. Image conversion fits the source inside the display and dithers it to black and white. The device does not need a cloud account or hosted service.
@@ -138,6 +142,7 @@ TX is disabled and the frequency is zero by default. Attach an appropriate anten
 
 ```json
 {
+  "enabled": true,
   "frequency_mhz": 868.1,
   "bandwidth_khz": 125,
   "spreading_factor": 7,
@@ -151,7 +156,7 @@ TX is disabled and the frequency is zero by default. Attach an appropriate anten
 }
 ```
 
-Send this to `POST /api/radio`. Partial updates are supported and saved across restarts. Frequency 0 disables the radio. Supported ranges are documented in `/api`. The coding rate is expressed as the denominator of 4/5 through 4/8. Header mode is explicit. Enable `tx_enabled` separately when ready to transmit.
+Send this to `POST /api/lora/config`. Partial updates are supported and saved across restarts. Frequency 0 disables the radio. Supported ranges are documented in `/api`. The coding rate is expressed as the denominator of 4/5 through 4/8. Header mode is explicit. Enable `tx_enabled` separately when ready to transmit. `POST /api/lora/activate` with `{"enabled":false}` stops the radio while preserving the frequency; `{"enabled":true}` starts it again. Add `tx_enabled` to change TX permission in the same request. Neither action changes Wi-Fi or the hotspot. Radio settings and activation survive restarts.
 
 `POST /api/lora/send` takes exactly one of `text` or `hex`, with 1–255 payload bytes. It returns local transmit success, not proof that a remote device received the packet. The same transceiver cannot listen while transmitting. Received packets are logged and are not automatically retransmitted.
 

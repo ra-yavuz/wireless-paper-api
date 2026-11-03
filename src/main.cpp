@@ -114,7 +114,7 @@ uint32_t logPacket(const uint8_t* bytes,size_t n,bool tx,float rssi=0,float snr=
 void radioJson(JsonObject o,const RadioSettings& c) {
   o["frequency_mhz"]=c.frequency;o["bandwidth_khz"]=c.bandwidth;o["spreading_factor"]=c.sf;
   o["coding_rate"]=c.cr;o["sync_word"]=c.sync;o["power_dbm"]=c.power;o["preamble"]=c.preamble;
-  o["crc"]=c.crc;o["tx_enabled"]=c.tx;o["duty_cycle_percent"]=c.dutyPercent;
+  o["enabled"]=c.enabled;o["crc"]=c.crc;o["tx_enabled"]=c.tx;o["duty_cycle_percent"]=c.dutyPercent;
 }
 bool parseRadio(JsonObjectConst o,RadioSettings& c) {
   // Validate before narrowing numeric fields to avoid overflow and truncation.
@@ -123,8 +123,8 @@ bool parseRadio(JsonObjectConst o,RadioSettings& c) {
     if(!strcmp(k,"frequency_mhz")){if(!v.is<float>())return false;c.frequency=v.as<float>();}
     else if(!strcmp(k,"bandwidth_khz")){if(!v.is<float>())return false;c.bandwidth=v.as<float>();}
     else if(!strcmp(k,"duty_cycle_percent")){if(!v.is<float>())return false;c.dutyPercent=v.as<float>();}
-    else if(!strcmp(k,"crc") || !strcmp(k,"tx_enabled")) {
-      if(!v.is<bool>())return false;if(!strcmp(k,"crc"))c.crc=v.as<bool>();else c.tx=v.as<bool>();
+    else if(!strcmp(k,"crc") || !strcmp(k,"tx_enabled") || !strcmp(k,"enabled")) {
+      if(!v.is<bool>())return false;if(!strcmp(k,"crc"))c.crc=v.as<bool>();else if(!strcmp(k,"enabled"))c.enabled=v.as<bool>();else c.tx=v.as<bool>();
     } else {
       if(!v.is<int>())return false;int n=v.as<int>();
       if(!strcmp(k,"spreading_factor") && n>=5 && n<=12)c.sf=n;
@@ -135,6 +135,7 @@ bool parseRadio(JsonObjectConst o,RadioSettings& c) {
       else return false;
     }
   }
+  if(!o["frequency_mhz"].isNull() && o["enabled"].isNull())c.enabled=c.frequency>0;
   return validRadio(c);
 }
 uint64_t uptimeMs() { return uint64_t(esp_timer_get_time()) / 1000; }
@@ -286,7 +287,7 @@ bool initRadio(float mhz) {
   if (radioReady) { radio.clearDio1Action(); radio.standby(); }
   radioReady = false;
   frequency = mhz;
-  if (mhz <= 0) { if(wasReady)radio.sleep();radioError = 0; return true; }
+  if (mhz <= 0 || !radioSettings.enabled) { if(wasReady)radio.sleep();radioError = 0; return true; }
   Platform::VExtOn();
   radioSPI.begin(9, 11, 10, 8);
   radioError = radio.begin(mhz,radioSettings.bandwidth,radioSettings.sf,radioSettings.cr,radioSettings.sync,radioSettings.power,radioSettings.preamble,1.8,false);
@@ -304,7 +305,7 @@ bool initRadio(float mhz) {
 void status() {
   JsonDocument d;
   d["device"] = hostname; d["width"] = WIDTH; d["height"] = HEIGHT;
-  d["frame_bytes"] = FRAME_SIZE; d["firmware"] = "1.3.0"; d["panel_revision"] = PAPER_REVISION;
+  d["frame_bytes"] = FRAME_SIZE; d["firmware"] = "1.3.1"; d["panel_revision"] = PAPER_REVISION;
   d["ssid"] = WIFI_SSID; d["connected"] = WiFi.status() == WL_CONNECTED;
   d["ip"] = WiFi.localIP().toString(); d["hotspot"] = apName; d["hotspot_ip"] = "192.168.4.1";
   d["mac"] = WiFi.macAddress(); d["hotspot_mac"] = WiFi.softAPmacAddress();
@@ -352,7 +353,7 @@ void routes() {
     if (!renderJson(httpBody,httpSize,id)) errorReply(displayBusy?409:400,lastError); else acceptedReply(id);
   },readHttpBody);
   server.on("/api/radio",HTTP_GET,status);
-  server.on("/api/radio",HTTP_POST, [] {
+  auto configureRadio=[] {
     JsonDocument d;
     RadioSettings candidate=radioSettings;
     if (!readJson(d) || !d.is<JsonObject>() || !d.size() || !parseRadio(d.as<JsonObjectConst>(),candidate)) { errorReply(400,"Invalid radio settings; see /api for ranges"); return; }
@@ -361,6 +362,28 @@ void routes() {
     if (!initRadio(candidate.frequency)) { int failed=radioError;radioSettings=previous;initRadio(previous.frequency);errorReply(503,"Radio initialization failed: " + String(failed));return; }
     JsonDocument saved;radioJson(saved.to<JsonObject>(),radioSettings);String config;serializeJson(saved,config);
     prefs.putString("radio_cfg",config);status();
+  };
+  server.on("/api/radio",HTTP_POST,configureRadio,readHttpBody);
+  server.on("/api/lora/config",HTTP_POST,configureRadio,readHttpBody);
+  auto radioStatus=[] {
+    JsonDocument d;d["enabled"]=radioSettings.enabled;d["ready"]=radioReady;d["tx_enabled"]=radioSettings.tx;d["error"]=radioError;
+    radioJson(d["settings"].to<JsonObject>(),radioSettings);d["received_packets"]=loraPackets;d["sent_packets"]=sentPackets;d["latest_packet_id"]=packetSequence;
+    uint64_t now=esp_timer_get_time();d["tx_wait_ms"]=now<nextTxAtUs?(nextTxAtUs-now+999)/1000:0;
+    String body;serializeJson(d,body);reply(200,body);
+  };
+  server.on("/api/lora/status",HTTP_GET,radioStatus);
+  server.on("/api/lora/config",HTTP_GET,radioStatus);
+  server.on("/api/lora/activate",HTTP_POST, [] {
+    JsonDocument d;
+    if(!readJson(d) || !d.is<JsonObject>() || !d["enabled"].is<bool>()){errorReply(400,"Supply enabled:true or enabled:false");return;}
+    for(JsonPairConst item:d.as<JsonObjectConst>())if(strcmp(item.key().c_str(),"enabled") && strcmp(item.key().c_str(),"tx_enabled")){errorReply(400,"Use /api/lora/config for modem settings");return;}
+    RadioSettings candidate=radioSettings;
+    if(d["enabled"].as<bool>() && candidate.frequency<=0){errorReply(409,"Configure a frequency before activating the radio");return;}
+    if(!parseRadio(d.as<JsonObjectConst>(),candidate)){errorReply(400,"Invalid activation settings");return;}
+    if(displayBusy){errorReply(409,"Wait for the screen update to finish");return;}
+    RadioSettings previous=radioSettings;radioSettings=candidate;
+    if(!initRadio(candidate.frequency)){int failed=radioError;radioSettings=previous;initRadio(previous.frequency);errorReply(503,"Radio activation failed: "+String(failed));return;}
+    JsonDocument saved;radioJson(saved.to<JsonObject>(),radioSettings);String config;serializeJson(saved,config);prefs.putString("radio_cfg",config);status();
   },readHttpBody);
   server.on("/api/lora/messages",HTTP_GET, [] {
     uint32_t after=0;
