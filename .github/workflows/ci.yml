@@ -14,7 +14,8 @@ jobs:
       - name: Build public firmware without credentials
         run: |
           test ! -e include/secrets.h
-          pio run
+          pio run -e paper -e tracker -e paper12
+      - run: bash -n install.sh && shellcheck install.sh
       - name: Native protocol and policy tests
         run: |
           mkdir -p .local
@@ -22,4 +23,8 @@ jobs:
           .local/protocol-test
           g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -Iinclude tests/policy_test.cpp -o .local/policy-test
           .local/policy-test
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -Iinclude tests/radio_request_test.cpp -o .local/radio-request-test
+          .local/radio-request-test
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -DWIRELESS_TRACKER -Iinclude tests/protocol_test.cpp -o .local/tracker-protocol-test
+          .local/tracker-protocol-test
       - run: python -m unittest discover -s tests -v

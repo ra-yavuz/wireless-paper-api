@@ -1,0 +1,31 @@
+{
+  "canvas": [
+    {
+      "width": 250,
+      "height": 122,
+      "bytes": 3904,
+      "exact_readback": true,
+      "undo_redo": true
+    },
+    {
+      "width": 160,
+      "height": 80,
+      "bytes": 1600,
+      "exact_readback": true,
+      "undo_redo": true
+    }
+  ],
+  "chat": [
+    {
+      "sender": 0,
+      "receiver": 1,
+      "auto_refreshed_exact_text": true
+    },
+    {
+      "sender": 1,
+      "receiver": 0,
+      "auto_refreshed_exact_text": true
+    }
+  ],
+  "errors": []
+}

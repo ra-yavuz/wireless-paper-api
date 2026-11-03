@@ -1,12 +1,12 @@
 # Wireless Paper API
 
-Control a Heltec Wireless Paper e-paper screen from a browser, Python, HTTP, or raw LoRa. Paint on a canvas, send text with layout settings, upload a picture, or use the board as a bidirectional LoRa adapter.
+Use a Heltec Wireless Paper or Wireless Tracker V1.1 as a bidirectional HTTP-to-LoRa adapter. Send packets over the air and read received messages through HTTP. The same firmware also provides a browser canvas, text layout, and image controls for each board's screen.
 
 A personal open-source project by **Ramazan Yavuz**. [Project page](https://ra-yavuz.github.io/wireless-paper-api/) · [API reference](docs/api.html) · [Security notes](SECURITY.md) · [Practical write-up](https://ramazan-yavuz.tr/articles/wireless-paper-api-a-screen-you-can-reach.html)
 
 ## What it does
 
-- Displays black-and-white content at 250 × 122 pixels.
+- Displays black-and-white content at 250 × 122 pixels on Paper or 160 × 80 on Tracker.
 - Provides a browser canvas with a pen, eraser, brush size, undo/redo, picture import, and **Show canvas**.
 - Accepts text, positions, font scale, ink/background colors, wrapping, and drawing operations through JSON.
 - Offers full-screen bitmap upload and readback.
@@ -17,11 +17,25 @@ A personal open-source project by **Ramazan Yavuz**. [Project page](https://ra-y
 - Keeps station Wi-Fi enabled after the hotspot window ends. The two connections are separate.
 - Exposes raw LoRa send/receive, saved modem configuration, and a rolling packet log over HTTP. LoRa display commands use the same JSON and bitmap formats.
 
-The default build targets **Wireless Paper V1.1**. V1.1.1/V1.2 have another panel: change `PAPER_REVISION=11` to `PAPER_REVISION=12` before building. Check the actual board and screen revision. The LoRa frequency must match the purchased radio band.
+The default build targets **Wireless Paper V1.1**. V1.1.1/V1.2 have another panel: select the `paper12` environment before building. Check the actual board and screen revision. The LoRa frequency must match the purchased radio band.
+
+The **tracker** build targets Wireless Tracker V1.1 with its 160 × 80 ST7735 TFT. It shares all HTTP and raw LoRa features with Paper, using 1,600-byte monochrome frames instead of 3,904-byte frames. Full TFT color and GNSS are outside this build. The TFT and backlight stay powered; only the e-paper controller sleeps after an update.
 
 ## Install
 
-You need Python, a USB data cable, and the board. Linux, macOS, and Windows can use PlatformIO; select the serial port for your system. No Debian package is supplied.
+The interactive installer for Linux and macOS can set up the local tools, choose the board and USB port, configure station Wi-Fi, build the firmware, back up existing flash, and upload after confirmation:
+
+```sh
+git clone https://github.com/ra-yavuz/wireless-paper-api.git
+cd wireless-paper-api
+./install.sh
+```
+
+It offers the current Wi-Fi name when NetworkManager is available and asks for the password twice without displaying it. Settings are saved in ignored `include/secrets.h` with owner-only permissions. Passwords are passed to the configuration writer through stdin, not command arguments. Choose hotspot-only setup to omit a station network. `./install.sh --configure-only` only updates private Wi-Fi settings. Existing private settings can be kept. Backups go in ignored `.local/backups/`. Keep private builds and backups off public services.
+
+The script requires Bash and Python 3.10+ with venv support. It installs Python tools locally without sudo or system package changes. Review the selected board and port before approving upload. The Paper V1.2 build compiles but was not hardware-tested in the two-board validation.
+
+For manual installation, you need Python, a USB data cable, and the board. Linux, macOS, and Windows can use PlatformIO; select the serial port for your system. No Debian package is supplied.
 
 ```sh
 git clone https://github.com/ra-yavuz/wireless-paper-api.git
@@ -31,6 +45,15 @@ python3 -m venv .venv
 .venv/bin/pio run
 .venv/bin/pio run -t upload --upload-port /dev/ttyUSB0
 ```
+
+For **Wireless Tracker V1.1**, select the tracker environment and its native USB port instead:
+
+```sh
+.venv/bin/pio run -e tracker
+.venv/bin/pio run -e tracker -t upload --upload-port /dev/ttyACM0
+```
+
+The default environment remains `paper`. The Tracker has a separate screen driver and board pin mapping; do not upload the Paper build to it.
 
 On Windows, activate the virtual environment using its `Scripts` directory and select a port such as `COM3` instead. Do not flash an unrelated board or panel revision.
 
@@ -67,11 +90,11 @@ No device backups, credentials, or private firmware binaries are included in the
 
 ## Connect and paint
 
-After startup, read the e-paper screen. Join `WirelessPaper-<suffix>` and open **http://192.168.4.1/**. The suffix is derived from the board's hardware address. In the **Hotspot** section, choose **On for the first 60 minutes** or **Keep it on permanently**, then save. The setting survives restarts.
+After startup, read the screen. Join `WirelessPaper-<suffix>` (or `WirelessTracker-<suffix>` on Tracker) and open **http://192.168.4.1/**. The suffix is derived from the board's hardware address. In the **Hotspot** section, choose **On for the first 60 minutes** or **Keep it on permanently**, then save. The setting survives restarts.
 
 In **Canvas**, paint with a mouse or finger. Choose a black pen or white eraser, adjust the brush size, and use undo/redo when needed. **Show canvas** sends the drawing to the device. You can also start with an imported picture or load the last completed screen image. Editing the canvas does not change the paper screen until you send it.
 
-If station Wi-Fi is configured, the same controls are available at the LAN address assigned by your router and at `http://wireless-paper-<suffix>.local/` where multicast DNS is supported. The DHCP client restores its previous lease when possible; the router still decides which IP is available. Reserve the station MAC in your router for a guaranteed address. Read the address and MAC from **Device information**.
+If station Wi-Fi is configured, the same controls are available at the LAN address assigned by your router and at `http://wireless-paper-<suffix>.local/` (Tracker: `http://wireless-tracker-<suffix>.local/`) where multicast DNS is supported. The DHCP client restores its previous lease when possible; the router still decides which IP is available. Reserve the station MAC in your router for a guaranteed address. Read the address and MAC from **Device information**.
 
 The first-hour window is measured from startup, not from the last HTTP request or from saving a setting. A connected client keeps it open after the deadline. When the last client leaves, the default policy closes the hotspot. Restarting the device opens a fresh setup window even if the saved station network is forgotten or unavailable. Normal station Wi-Fi continues after the hotspot stops.
 
@@ -117,7 +140,7 @@ Operations support `text`, `line`, `rect`, `circle`, and `pixel`. All take `x`, 
 
 Writes return HTTP **202** with a job ID. Acceptance does not mean the refresh has completed. Poll `/api/status` until `completed_job` matches the ID and `busy` is false. A panel timeout sets `display_error`. New display writes while busy return **409**; invalid requests return **400**. JSON is limited to 8,192 bytes.
 
-A full bitmap is **3,904 bytes**: 122 rows of 32 bytes, MSB first, **1 = black**. The last six bits of each row are padding. POST with `Content-Type: application/octet-stream`. The startup banner replaces the previous displayed content on restart; preview and packet history are held in RAM.
+A full Paper bitmap is **3,904 bytes**: 122 rows of 32 bytes. Tracker uses **1,600 bytes**: 80 rows of 20 bytes. Both use MSB first, **1 = black**. Paper has six padding bits per row; Tracker has none. Read dimensions and `frame_bytes` from `/api/status`. POST with `Content-Type: application/octet-stream`. The startup banner replaces the previous displayed content on restart; preview and packet history are held in RAM.
 
 ## Python client and reusable helpers
 
@@ -162,6 +185,15 @@ Send this to `POST /api/lora/config`. Partial updates are supported and saved ac
 
 `GET /api/lora/messages?after=0` returns the last 16 RX/TX packets in RAM, with IDs, uptime timestamps, hex, printable ASCII where possible, and RSSI/SNR for received packets. Use `latest_id` as your next cursor. Restarting resets the log and IDs.
 
+For a temporary modem profile, add `radio` to a send request. For example:
+
+```sh
+curl http://BOARD/api/lora/send -H 'Content-Type: application/json' \
+  -d '{"text":"hello","radio":{"enabled":true,"frequency_mhz":868.1,"bandwidth_khz":250,"spreading_factor":8,"tx_enabled":true}}'
+```
+
+Overrides inherit omitted fields, apply to that transmission, and are never saved. The configured receiver is restored immediately afterward, including a disabled baseline. Set the saved receive profile to match replies. The response reports `temporary_radio`, effective `radio`, restored `receive_radio`, `receiver_ready`, and `receiver_error`. Each logged packet also includes the modem profile used. In Python, `send 'hello' --radio profile.json` sends the same request.
+
 An airtime pacing guard defaults to 1%. HTTP 429 and `Retry-After` indicate when a send must wait. This is a configurable safeguard, not regulatory approval or a complete duty-cycle compliance system. Resetting the device resets its pacing history. Follow the radio rules for your location and hardware.
 
 ## Sending display commands over LoRa
@@ -172,12 +204,14 @@ This is a custom raw LoRa protocol, not Meshtastic or LoRaWAN. Both radios need 
 .venv/bin/python tools/paper.py --lora-out /tmp/paper-packets text 'Remote screen'
 ```
 
-Each `packet-NNN.bin` is one payload. Send files listed in `manifest.json`, not stale files left by a previous transfer. A full image takes 18 packets. With a second board acting as an HTTP-to-LoRa adapter, the client can send the fragments for you and wait for its pacing guard:
+Each `packet-NNN.bin` is one payload. Send files listed in `manifest.json`, not stale files left by a previous transfer. A full Paper image takes 18 packets; a Tracker image takes 8. With a second board acting as an HTTP-to-LoRa adapter, the client can send the fragments for you and wait for its pacing guard:
 
 ```sh
 .venv/bin/python tools/paper.py --url http://ADAPTER --via-lora text 'Remote screen'
 .venv/bin/python tools/paper.py --url http://ADAPTER --via-lora image picture.png
 ```
+
+For an image sent over LoRa to a Tracker, add `--width 160 --height 80` before `image`. Image uploads over HTTP discover the target dimensions automatically. JSON drawing commands work on either display; bitmap transfers must match the receiving screen.
 
 Image transfers can be slow because of airtime limits. No acknowledgment confirms delivery; resend the whole command if packets are lost. Radio sending, receiving, and remote display control remain distinct operations.
 
@@ -198,11 +232,11 @@ All but the final fragment contain 224 bytes. The maximum radio payload is 240 b
 
 ## Power and limitations
 
-The CPU runs at 80 MHz, the LED is off, Wi-Fi modem power saving is requested, and the display controller sleeps after refresh. Station Wi-Fi remains available when configured. The hotspot can expire according to its policy, which can reduce Wi-Fi overhead. There is no whole-device deep-sleep mode that could strand HTTP clients. Actual current and battery life have not been measured.
+The CPU runs at 80 MHz, the LED is off, Wi-Fi modem power saving is requested, and the Paper display controller sleeps after refresh. Tracker keeps its TFT and backlight powered and holds the unused GNSS chip in reset. Station Wi-Fi remains available when configured. The hotspot can expire according to its policy, which can reduce Wi-Fi overhead. There is no whole-device deep-sleep mode that could strand HTTP clients. Actual current and battery life have not been measured.
 
-Native tests cover the actual fragment assembler, CRC, bounds, duplicates, ordering, corruption, 100,000 malformed packets, exact hotspot timing boundaries, connected-client hold, long uptimes, radio setting limits, and pacing arithmetic. Live board checks cover text/image pixel results, browser controls, radio initialization/configuration, saved hotspot policy across resets, and rejected send requests without RF transmission.
+Native tests cover the actual fragment assembler, CRC, bounds, duplicates, ordering, corruption, 100,000 malformed packets, exact hotspot timing boundaries, connected-client hold, long uptimes, radio setting limits, and pacing arithmetic. Live board checks cover text/image pixel results, browser controls, radio initialization/configuration, saved hotspot policy across resets, and rejected send requests. Real two-board radio tests are described below.
 
-**A second radio is needed to validate actual over-the-air transmission, reception, range, and interoperability.** Local driver initialization and API checks do not prove those outcomes. A real 60-minute expiration run and associated-client behavior are separate hardware checks; native policy tests do not substitute for a measured battery or field test.
+**Two-board over-the-air delivery has been verified** between Wireless Paper and Wireless Tracker using the HTTP send and receive APIs. See [radio validation](docs/radio-validation.md) for settings, exact checks, evidence, and limits. These local tests do not establish range or compatibility with other protocols. A real 60-minute expiration run and associated-client behavior are separate hardware checks; native policy tests do not substitute for a measured battery or field test.
 
 ```sh
 mkdir -p .local
@@ -221,4 +255,13 @@ The optional `tests/hardware_check.py --url http://BOARD --radio-mhz FREQUENCY` 
 
 MIT, by Ramazan Yavuz. Provided **as is, without warranty of any kind**. You accept all risk from installation and use, including damage, data loss, disclosure, or unintended radio operation. Read [SECURITY.md](SECURITY.md) and the hardware documentation before flashing.
 
-Hardware references: [Heltec Wireless Paper](https://heltec.org/project/wireless-paper/), [panel revisions](https://docs.heltec.org/en/node/esp32/wireless_paper/hardware_update_log.html), [display driver](https://github.com/todd-herbert/heltec-eink-modules), [RadioLib](https://github.com/jgromes/RadioLib).
+To repeat the real air-link checks with two boards, use a suitable frequency for the hardware and location:
+
+```sh
+.venv/bin/python tests/radio_pair_check.py --a http://BOARD_A --b http://BOARD_B \
+  --frequency 868.1 --output .local/radio-pair-check.json
+```
+
+This test changes modem settings and transmits packets. It restores both boards' prior radio configurations in a `finally` block. It checks exact received bytes instead of treating a local send response as remote delivery.
+
+Hardware references: [Heltec Wireless Paper](https://heltec.org/project/wireless-paper/), [panel revisions](https://docs.heltec.org/en/node/esp32/wireless_paper/hardware_update_log.html), [display driver](https://github.com/todd-herbert/heltec-eink-modules), [RadioLib](https://github.com/jgromes/RadioLib), [Tracker pin mapping](https://github.com/HelTecAutomation/Heltec_ESP32/blob/master/src/HT_st7735.h).

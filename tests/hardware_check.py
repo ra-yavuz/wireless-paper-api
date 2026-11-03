@@ -23,7 +23,8 @@ def wait(job):
         time.sleep(.5)
     raise AssertionError('Display update timeout')
 initial=get('/api/status').json()
-assert initial['frame_bytes']==3904 and initial['http_port']==80
+width,height=initial['width'],initial['height'];stride=(width+7)//8;frame_size=stride*height
+assert initial['frame_bytes']==frame_size and initial['http_port']==80
 assert initial.get('hotspot_mode') in ('first-hour','always') and initial.get('wifi_shutdown_allowed') is False,'Refusing shutdown-regression tests on firmware without station connectivity protection'
 def check_connectivity_policy():
     for mode in ['radio','off','sleep','deep-sleep']:
@@ -49,11 +50,12 @@ for doc in [[],{'ops':'bad'},{'ops':[{'type':'line','x':1,'y':2}]},{'text':'bad'
 r=s.post(base+'/api/frame',data=b'\0invalid',headers={'Content-Type':'application/octet-stream'},timeout=10)
 assert r.status_code==400
 assert get('/api/frame').content==before
-frame=bytes((0 if i%7==0 else 255 if i%7==1 else (i*17)&255) for i in range(3904))
+frame=bytes((0 if i%7==0 else 255 if i%7==1 else (i*17)&255) for i in range(frame_size))
 r=s.post(base+'/api/frame',data=frame,headers={'Content-Type':'application/octet-stream'},timeout=10)
 assert r.status_code==202,(r.status_code,r.text);job=r.json()['job']
-r=s.post(base+'/api/display',json={'text':'Must be rejected while updating'},timeout=10)
-assert r.status_code==409,(r.status_code,r.text)
+if initial['board_model'].startswith('Heltec Wireless Paper'):
+    r=s.post(base+'/api/display',json={'text':'Must be rejected while updating'},timeout=10)
+    assert r.status_code==409,(r.status_code,r.text)
 wait(job)
 assert get('/api/frame').content==frame,'Binary image did not round trip exactly'
 def draw(doc):
@@ -62,23 +64,23 @@ def draw(doc):
     wait(r.json()['job']);return get('/api/frame').content
 small=draw({'text':'A','size':1,'x':0,'y':0,'color':'black','background':'white','wrap':False})
 large=draw({'text':'A','size':3,'x':12,'y':15,'color':'white','background':'black','wrap':False})
-expected=bytearray(3904)
-for y in range(122):
-    for x in range(250):expected[y*32+x//8]|=128>>(x%8)
+expected=bytearray(frame_size)
+for y in range(height):
+    for x in range(width):expected[y*stride+x//8]|=128>>(x%8)
 for y in range(8):
     for x in range(6):
-        if small[y*32+x//8]&(128>>(x%8)):
+        if small[y*stride+x//8]&(128>>(x%8)):
             for dy in range(3):
                 for dx in range(3):
                     xx,yy=12+x*3+dx,15+y*3+dy
-                    expected[yy*32+xx//8]&=~(128>>(xx%8))
+                    expected[yy*stride+xx//8]&=~(128>>(xx%8))
 assert large==bytes(expected),'Text size, position, ink, or background pixels are wrong'
 inherited=draw({'size':3,'color':'#FFFFFF','background':'#000000','wrap':False,
                 'ops':[{'type':'text','x':12,'y':15,'text':'A'}]})
 assert inherited==large,'Text operation did not inherit settings'
-layered=draw({'clear':False,'ops':[{'type':'rect','x':210,'y':100,'w':10,'h':10,'fill':True,'color':'white'}]})
-for y in range(100,110):
-    for x in range(210,220):expected[y*32+x//8]&=~(128>>(x%8))
+layered=draw({'clear':False,'ops':[{'type':'rect','x':width-40,'y':height-22,'w':10,'h':10,'fill':True,'color':'white'}]})
+for y in range(height-22,height-12):
+    for x in range(width-40,width-30):expected[y*stride+x//8]&=~(128>>(x%8))
 assert layered==bytes(expected),'Named shape color or retained background is wrong'
 assert 'Text and drawing' in get('/api').text
 if args.radio_mhz:
@@ -111,8 +113,8 @@ if args.radio_mhz:
     finally:
         r=s.post(base+'/api/radio',json=initial['radio'],timeout=20)
         r.raise_for_status()
-message='Paper ready\n'+initial['ip']+'\n\nHotspot:\n192.168.4.1'
-r=s.post(base+'/api/display',json={'text':message,'size':2},timeout=10)
+message='API ready\n'+initial['ip']+'\n\nHotspot:\n192.168.4.1'
+r=s.post(base+'/api/display',json={'text':message,'size':1 if width<200 else 2},timeout=10)
 assert r.status_code==202,(r.status_code,r.text);wait(r.json()['job'])
 assert any(get('/api/frame').content),'Text produced a blank frame'
 final=get('/api/status').json()

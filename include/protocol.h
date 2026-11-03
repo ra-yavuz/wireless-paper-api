@@ -4,7 +4,12 @@
 #include <string.h>
 
 namespace paper {
-constexpr size_t WIDTH = 250, HEIGHT = 122, STRIDE = (WIDTH + 7) / 8;
+#ifdef WIRELESS_TRACKER
+constexpr size_t WIDTH = 160, HEIGHT = 80;
+#else
+constexpr size_t WIDTH = 250, HEIGHT = 122;
+#endif
+constexpr size_t STRIDE = (WIDTH + 7) / 8;
 constexpr size_t FRAME_SIZE = STRIDE * HEIGHT, MAX_BODY = 8192, CHUNK = 224;
 inline uint16_t u16(const uint8_t* p) { return p[0] | uint16_t(p[1]) << 8; }
 inline uint32_t u32(const uint8_t* p) { return u16(p) | uint32_t(u16(p + 2)) << 16; }

@@ -34,4 +34,16 @@ class ClientTests(unittest.TestCase):
     def test_reject_wrong_frame_size(self):
         with self.assertRaises(ValueError):list(paper.packets(b"bad",2))
 
+    def test_tracker_image_and_packets(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/"tracker.png";im=Image.new("RGB",(160,80),"white")
+            im.putpixel((0,0),(0,0,0));im.putpixel((159,79),(0,0,0));im.save(p)
+            frame=paper.image_frame(p,160,80)
+            self.assertEqual(len(frame),1600)
+            self.assertEqual((frame[0],frame[-1]),(128,1))
+            self.assertEqual(sum(b.bit_count() for b in frame),2)
+            chunks=list(paper.packets(frame,2,frame_size=1600))
+            self.assertEqual(b"".join(p[16:] for p in chunks),frame)
+            with self.assertRaises(ValueError):list(paper.packets(frame,2))
+
 if __name__=="__main__":unittest.main()

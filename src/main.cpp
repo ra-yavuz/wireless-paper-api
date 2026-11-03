@@ -6,12 +6,13 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <RadioLib.h>
-#include <heltec-eink-modules.h>
+#include "board_screen.h"
 #include <esp_wifi.h>
 #include <esp_timer.h>
 #include "protocol.h"
 #include "device_policy.h"
 #include "radio_settings.h"
+#include "radio_request.h"
 #if __has_include("secrets.h")
 #include "secrets.h"
 #endif
@@ -25,36 +26,6 @@
 #include "api_docs.h"
 
 using namespace paper;
-#if PAPER_REVISION == 12
-using Panel = EInkDisplay_WirelessPaperV1_2;
-#else
-using Panel = EInkDisplay_WirelessPaperV1_1;
-#endif
-class Screen : public Panel {
- public:
-  bool timeout = false;
-  void sleepPanel() {
-    wait();
-#if PAPER_REVISION == 12
-    sendCommand(0x10); sendData(0x01);
-#else
-    sendCommand(0x07); sendData(0xa5);
-#endif
-  }
- protected:
-  void wait() override {
-    uint32_t start = millis();
-#if PAPER_REVISION == 12
-    const int busy = HIGH;
-#else
-    const int busy = LOW;
-#endif
-    while (digitalRead(7) == busy) {
-      if (millis() - start > 15000) { timeout = true; break; }
-      delay(1);
-    }
-  }
-};
 
 Screen screen;
 class ApiServer : public WebServer {
@@ -101,7 +72,7 @@ bool httpComplete = false, httpOverflow = false;
 RadioSettings radioSettings;
 struct PacketLog {
   uint32_t id; uint64_t at; uint16_t size; bool tx;
-  float rssi,snr; uint8_t bytes[255];
+  float rssi,snr; uint8_t bytes[255]; RadioSettings settings;
 };
 PacketLog packetLog[16]{};
 uint32_t packetSequence=0, sentPackets=0;
@@ -109,6 +80,7 @@ uint64_t nextTxAtUs=0;
 uint32_t logPacket(const uint8_t* bytes,size_t n,bool tx,float rssi=0,float snr=0) {
   uint32_t id=++packetSequence;PacketLog& entry=packetLog[(id-1)%16];
   entry.id=id;entry.at=uint64_t(esp_timer_get_time())/1000;entry.size=n;entry.tx=tx;entry.rssi=rssi;entry.snr=snr;
+  entry.settings=radioSettings;
   memcpy(entry.bytes,bytes,n);return id;
 }
 void radioJson(JsonObject o,const RadioSettings& c) {
@@ -188,13 +160,7 @@ void displayWorker(void*) {
   for (;;) {
     if (xQueueReceive(jobs, &job, portMAX_DELAY) != pdTRUE) continue;
     screen.timeout = false;
-    screen.fastmodeOff();
-    screen.fillScreen(WHITE);
-    for (int y = 0; y < int(HEIGHT); ++y)
-      for (int x = 0; x < int(WIDTH); ++x)
-        if (job.pixels[y * STRIDE + x / 8] & (0x80 >> (x % 8))) screen.drawPixel(x, y, BLACK);
-    screen.update();
-    screen.sleepPanel();
+    screen.show(job.pixels);
     displayFailed = screen.timeout;
     if (!screen.timeout) {
       xSemaphoreTake(frameLock, portMAX_DELAY);
@@ -288,7 +254,7 @@ bool initRadio(float mhz) {
   radioReady = false;
   frequency = mhz;
   if (mhz <= 0 || !radioSettings.enabled) { if(wasReady)radio.sleep();radioError = 0; return true; }
-  Platform::VExtOn();
+  radioPowerOn();
   radioSPI.begin(9, 11, 10, 8);
   radioError = radio.begin(mhz,radioSettings.bandwidth,radioSettings.sf,radioSettings.cr,radioSettings.sync,radioSettings.power,radioSettings.preamble,1.8,false);
   if (radioError != RADIOLIB_ERR_NONE) return false;
@@ -305,7 +271,10 @@ bool initRadio(float mhz) {
 void status() {
   JsonDocument d;
   d["device"] = hostname; d["width"] = WIDTH; d["height"] = HEIGHT;
-  d["frame_bytes"] = FRAME_SIZE; d["firmware"] = "1.3.1"; d["panel_revision"] = PAPER_REVISION;
+  d["frame_bytes"] = FRAME_SIZE; d["firmware"] = "1.4.0"; d["board_model"] = BOARD_MODEL;
+#ifndef WIRELESS_TRACKER
+  d["panel_revision"] = PAPER_REVISION;
+#endif
   d["ssid"] = WIFI_SSID; d["connected"] = WiFi.status() == WL_CONNECTED;
   d["ip"] = WiFi.localIP().toString(); d["hotspot"] = apName; d["hotspot_ip"] = "192.168.4.1";
   d["mac"] = WiFi.macAddress(); d["hotspot_mac"] = WiFi.softAPmacAddress();
@@ -344,7 +313,7 @@ void routes() {
   });
   server.on("/api/frame",HTTP_POST, [] {
     uint32_t id;
-    if (!httpComplete || httpOverflow || httpSize!=FRAME_SIZE) { errorReply(400,"Expected exactly 3904 bytes: 250x122, row-padded, MSB first, 1=black"); return; }
+    if (!httpComplete || httpOverflow || httpSize!=FRAME_SIZE) { errorReply(400,"Expected exactly "+String(FRAME_SIZE)+" bytes; see /api/status for screen dimensions"); return; }
     if (!enqueueFrame(httpBody,id)) errorReply(409,lastError); else acceptedReply(id);
   },readHttpBody);
   server.on("/api/display",HTTP_POST, [] {
@@ -399,6 +368,7 @@ void routes() {
     for(uint32_t id=first;id<=packetSequence && id>0;++id){
       if(id<=after)continue;const PacketLog& entry=packetLog[(id-1)%16];
       JsonObject m=entries.add<JsonObject>();m["id"]=id;m["uptime_ms"]=entry.at;m["direction"]=entry.tx?"tx":"rx";m["bytes"]=entry.size;
+      radioJson(m["radio"].to<JsonObject>(),entry.settings);
       String hex,text;hex.reserve(entry.size*2);text.reserve(entry.size);bool printable=true;const char* digits="0123456789abcdef";
       for(unsigned i=0;i<entry.size;++i){uint8_t v=entry.bytes[i];hex+=digits[v>>4];hex+=digits[v&15];if(v<32 && v!='\n' && v!='\r' && v!='\t')printable=false;if(v>=127)printable=false;text+=char(v);}
       m["hex"]=hex;if(printable)m["text"]=text;else m["text"]=nullptr;
@@ -407,9 +377,13 @@ void routes() {
     String body;serializeJson(d,body);reply(200,body);
   });
   server.on("/api/lora/send",HTTP_POST, [] {
-    if(!radioReady){errorReply(409,"Configure a radio frequency first");return;}
-    if(!radioSettings.tx){errorReply(403,"Radio transmit is disabled; enable tx_enabled in /api/radio");return;}
     JsonDocument d;if(!readJson(d)||!d.is<JsonObject>()){errorReply(400,"Supply text or hex");return;}
+    bool temporary=!d["radio"].isNull();
+    RadioSettings effective=radioSettings;
+    if(d["radio"].isNull() && d.as<JsonObjectConst>().containsKey("radio")){errorReply(400,"radio must be a settings object");return;}
+    if(temporary && (!d["radio"].is<JsonObject>() || !parseRadio(d["radio"].as<JsonObjectConst>(),effective))){errorReply(400,"Invalid per-request radio settings; see /api");return;}
+    if(!effective.enabled || effective.frequency<=0 || (!temporary && !radioReady)){errorReply(409,"Activate a configured radio or supply per-request settings");return;}
+    if(!effective.tx){errorReply(403,"Transmit is disabled; enable tx_enabled in the saved or per-request settings");return;}
     bool text=d["text"].is<const char*>(),hex=d["hex"].is<const char*>();
     if(text==hex){errorReply(400,"Supply exactly one of text or hex");return;}
     uint8_t payload[255];size_t n=0;
@@ -421,14 +395,23 @@ void routes() {
     }
     uint64_t now=esp_timer_get_time();
     if(now<nextTxAtUs){server.sendHeader("Retry-After",String((unsigned long)((nextTxAtUs-now+999999)/1000000)));errorReply(429,"Transmit pacing limit; check tx_wait_ms in /api/status");return;}
-    uint64_t airtime=radio.getTimeOnAir(n);nextTxAtUs=now+txIntervalUs(airtime,radioSettings.dutyPercent);
+    RadioRequestProfile profile(radioSettings,temporary,initRadio);
+    if(!profile.apply(effective)){int failed=radioError;profile.restore();errorReply(503,"Per-request radio initialization failed: "+String(failed));return;}
+    uint64_t airtime=radio.getTimeOnAir(n);nextTxAtUs=uint64_t(esp_timer_get_time())+txIntervalUs(airtime,effective.dutyPercent);
     radio.clearDio1Action();received=false;
     int state=radio.transmit(payload,n);
-    radio.setDio1Action(onRadio);received=false;int rxState=radio.startReceive();
-    if(rxState!=RADIOLIB_ERR_NONE){radioReady=false;radioError=rxState;}
+    uint32_t id=0;
+    if(state==RADIOLIB_ERR_NONE){++sentPackets;id=logPacket(payload,n,true);}
+    if(temporary)profile.restore();
+    else {
+      radio.setDio1Action(onRadio);received=false;int rxState=radio.startReceive();
+      if(rxState!=RADIOLIB_ERR_NONE){radioReady=false;radioError=rxState;}
+    }
     if(state!=RADIOLIB_ERR_NONE){++loraErrors;errorReply(503,"Radio transmit failed: "+String(state));return;}
-    ++sentPackets;uint32_t id=logPacket(payload,n,true);
-    reply(200,"{\"sent\":true,\"id\":"+String(id)+",\"bytes\":"+String(n)+",\"receiver_ready\":"+(radioReady?"true":"false")+"}");
+    JsonDocument result;result["sent"]=true;result["id"]=id;result["bytes"]=n;
+    result["temporary_radio"]=temporary;result["receiver_ready"]=radioReady;result["receiver_error"]=radioError;
+    radioJson(result["radio"].to<JsonObject>(),effective);radioJson(result["receive_radio"].to<JsonObject>(),radioSettings);
+    String body;serializeJson(result,body);reply(200,body);
   },readHttpBody);
   server.on("/api/power",HTTP_POST, [] {
     JsonDocument d;
@@ -486,19 +469,19 @@ void setup() {
   Serial.println("Wireless Paper API by Ramazan Yavuz: provided as is, without warranty. You accept all risk from installation and use.");
   pinMode(18,OUTPUT); digitalWrite(18,LOW); pinMode(0,INPUT_PULLUP);
   uint64_t mac=ESP.getEfuseMac(); char suffix[5]; snprintf(suffix,sizeof(suffix),"%04X",unsigned((mac>>32)&0xffff));
-  apName=String("WirelessPaper-")+suffix; hostname=String("wireless-paper-")+suffix; hostname.toLowerCase();
+  apName=String(AP_PREFIX)+suffix; hostname=String(HOST_PREFIX)+suffix; hostname.toLowerCase();
   prefs.begin("paper",false); frequency=prefs.getFloat("frequency",0);
   radioSettings.frequency=frequency;
   if(prefs.isKey("radio_cfg")){JsonDocument saved;if(!deserializeJson(saved,prefs.getString("radio_cfg"))){RadioSettings candidate;if(parseRadio(saved.as<JsonObjectConst>(),candidate)){radioSettings=candidate;frequency=candidate.frequency;}}}
   hotspotAlways=prefs.getBool("ap_always",false);
   pinMode(12,OUTPUT); digitalWrite(12,LOW); delay(10); digitalWrite(12,HIGH);
   frameLock=xSemaphoreCreateMutex(); jobs=xQueueCreate(1,sizeof(FrameJob));
-  screen.setRotation(1);
+  screen.begin();
   xTaskCreatePinnedToCore(displayWorker,"screen",8192,nullptr,1,nullptr,1);
   routes(); startWifi(); initRadio(frequency);
   JsonDocument banner;
   banner["text"]=String("Setup hotspot\n")+apName+"\nhttp://192.168.4.1/\n"+(hotspotAlways?"Always on":"On for 60 minutes")+"\nSettings: Web UI";
-  banner["size"]=2;
+  banner["size"]=WIDTH<200?1:2;
   String boot;serializeJson(banner,boot);uint32_t bootJob;
   renderJson((const uint8_t*)boot.c_str(),boot.length(),bootJob);
   Serial.printf("Wireless Paper API ready. Radio MHz: %.3f\n",frequency);

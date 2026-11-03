@@ -1,0 +1,462 @@
+{
+  "started": "2026-11-03T22:54:50+0300",
+  "boards": {
+    "a": {
+      "firmware": "1.4.0",
+      "board_model": "Heltec Wireless Paper",
+      "width": 250,
+      "height": 122
+    },
+    "b": {
+      "firmware": "1.4.0",
+      "board_model": "Heltec Wireless Tracker V1.1",
+      "width": 160,
+      "height": 80
+    }
+  },
+  "exchanges": [
+    {
+      "from": "a",
+      "to": "b",
+      "sent": {
+        "sent": true,
+        "id": 8,
+        "bytes": 25,
+        "temporary_radio": false,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 8,
+        "uptime_ms": 177640,
+        "direction": "rx",
+        "bytes": 25,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "48656c6c6f2066726f6d204120333039643062383762356365",
+        "text": "Hello from A 309d0b87b5ce",
+        "rssi": -119,
+        "snr": -4
+      }
+    },
+    {
+      "from": "b",
+      "to": "a",
+      "sent": {
+        "sent": true,
+        "id": 9,
+        "bytes": 25,
+        "temporary_radio": false,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 9,
+        "uptime_ms": 160256,
+        "direction": "rx",
+        "bytes": 25,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "5265706c792066726f6d204220333039643062383762356365",
+        "text": "Reply from B 309d0b87b5ce",
+        "rssi": -110,
+        "snr": 1.75
+      }
+    },
+    {
+      "from": "a",
+      "to": "b",
+      "sent": {
+        "sent": true,
+        "id": 10,
+        "bytes": 8,
+        "temporary_radio": false,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 10,
+        "uptime_ms": 184679,
+        "direction": "rx",
+        "bytes": 8,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "0001ff00807f000a",
+        "text": null,
+        "rssi": -117,
+        "snr": -3.25
+      }
+    },
+    {
+      "from": "b",
+      "to": "a",
+      "sent": {
+        "sent": true,
+        "id": 11,
+        "bytes": 255,
+        "temporary_radio": false,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 11,
+        "uptime_ms": 167468,
+        "direction": "rx",
+        "bytes": 255,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfe",
+        "text": null,
+        "rssi": -110,
+        "snr": 1.75
+      }
+    },
+    {
+      "from": "a",
+      "to": "b",
+      "sent": {
+        "sent": true,
+        "id": 12,
+        "bytes": 30,
+        "temporary_radio": true,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 250,
+          "spreading_factor": 8,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 12,
+        "uptime_ms": 189732,
+        "direction": "rx",
+        "bytes": 30,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 250,
+          "spreading_factor": 8,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "54656d706f726172792070726f66696c6520333039643062383762356365",
+        "text": "Temporary profile 309d0b87b5ce",
+        "rssi": -118,
+        "snr": -6.5
+      }
+    },
+    {
+      "from": "b",
+      "to": "a",
+      "sent": {
+        "sent": true,
+        "id": 13,
+        "bytes": 26,
+        "temporary_radio": false,
+        "receiver_ready": true,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 13,
+        "uptime_ms": 207772,
+        "direction": "rx",
+        "bytes": 26,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "416674657220726573746f726520333039643062383762356365",
+        "text": "After restore 309d0b87b5ce",
+        "rssi": -110,
+        "snr": 1.75
+      }
+    },
+    {
+      "from": "a",
+      "to": "b",
+      "sent": {
+        "sent": true,
+        "id": 14,
+        "bytes": 36,
+        "temporary_radio": true,
+        "receiver_ready": false,
+        "receiver_error": 0,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "receive_radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": false,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        }
+      },
+      "received": {
+        "id": 14,
+        "uptime_ms": 239978,
+        "direction": "rx",
+        "bytes": 36,
+        "radio": {
+          "frequency_mhz": 868.1,
+          "bandwidth_khz": 125,
+          "spreading_factor": 7,
+          "coding_rate": 5,
+          "sync_word": 18,
+          "power_dbm": -9,
+          "preamble": 8,
+          "enabled": true,
+          "crc": true,
+          "tx_enabled": true,
+          "duty_cycle_percent": 1
+        },
+        "hex": "4f6e652d73686f74207768696c6520696e61637469766520333039643062383762356365",
+        "text": "One-shot while inactive 309d0b87b5ce",
+        "rssi": -118,
+        "snr": -3.25
+      }
+    }
+  ],
+  "baseline": {
+    "enabled": true,
+    "frequency_mhz": 868.1,
+    "bandwidth_khz": 125,
+    "spreading_factor": 7,
+    "coding_rate": 5,
+    "sync_word": 18,
+    "power_dbm": -9,
+    "preamble": 8,
+    "crc": true,
+    "tx_enabled": true,
+    "duty_cycle_percent": 1
+  },
+  "pacing_rejected": true,
+  "invalid_profiles_rejected": true,
+  "completed": true
+}
